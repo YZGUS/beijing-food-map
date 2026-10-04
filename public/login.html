@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="theme-color" content="#245f48">
+ <meta name="robots" content="noindex">
+ <title>登录 · 北京食单</title>
+ <link rel="stylesheet" href="login.css">
+ <script src="login.js" defer></script>
+</head>
+<body>
+ <main class="login-shell">
+  <a href="./" class="brand" aria-label="北京食单首页"><img src="assets/navi-avatar.png" alt="Navi" width="52" height="52"><span><strong>北京食单</strong><small>一人食收藏</small></span></a>
+  <section class="login-card" aria-labelledby="form-title">
+   <p class="eyebrow">给每一餐留个位置</p>
+   <h1 id="form-title">欢迎回来</h1>
+   <p id="form-description" class="description">登录后，继续浏览收藏、记录美食与分享体验。</p>
+   <form id="auth-form">
+    <label for="username">用户名</label>
+    <input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,31}" aria-describedby="username-help">
+    <small id="username-help" class="field-help">3–32 位英文字母、数字、下划线或短横线</small>
+    <label for="password">密码</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+    <div id="register-fields" hidden>
+     <label for="display-name">昵称</label>
+     <input id="display-name" name="displayName" autocomplete="nickname" maxlength="40" placeholder="评价与记录中展示的名字">
+     <label for="invitation-code">邀请口令</label>
+     <input id="invitation-code" name="code" type="password" autocomplete="off" maxlength="256">
+    </div>
+    <p id="auth-status" class="status" role="status" aria-live="polite"></p>
+    <button id="submit-auth" type="submit">登录食单</button>
+   </form>
+   <button id="toggle-mode" class="text-button" type="button" hidden>有邀请口令？创建账号</button>
+   <a id="browse-link" class="browse-link" href="./" hidden>先浏览食单</a>
+  </section>
+ </main>
+</body>
+</html>

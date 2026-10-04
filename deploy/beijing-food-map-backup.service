@@ -1,0 +1,9 @@
+[Unit]
+Description=Backup Beijing Food Map
+After=beijing-food-map.service
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/beijing-food-map.env
+WorkingDirectory=/opt/beijing-food-map/current
+ExecStart=/usr/local/bin/node deploy/backup.mjs
+UMask=0077

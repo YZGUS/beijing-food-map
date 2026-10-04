@@ -1,0 +1,25 @@
+{
+  "name": "beijing-food-map",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --env-file-if-exists=.env server/index.js",
+    "test": "node --test tests/*.test.mjs",
+    "db:generate": "drizzle-kit generate",
+    "user:create": "node --env-file-if-exists=.env scripts/create-user.mjs"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "esbuild": "0.25.10"
+  },
+  "dependencies": {
+    "fast-png": "6.4.0",
+    "jpeg-js": "0.4.4"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

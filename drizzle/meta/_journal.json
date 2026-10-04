@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791128504879,
+      "tag": "0000_stale_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791128742879,
+      "tag": "0001_brave_jocasta",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791130142245,
+      "tag": "0002_sharp_sunspot",
+      "breakpoints": true
+    }
+  ]
+}
