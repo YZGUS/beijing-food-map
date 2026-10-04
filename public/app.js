@@ -13,7 +13,7 @@
   const dishesFor=p=>[...new Set((p.dishes||[]).map(d=>String(d).replace(/[（(][^）)]*(?:描述|原图|正文|菜单|核验|图称|图片名|实食|续加)[^）)]*[）)]/g,'').trim()).filter(Boolean))];
   const address=p=>String(p.externalAddress||p.address||'地点待补').split('；')[0];
   const negative=p=>p.isNegative===true;
-  let map=null,selectedId=null,triggerOrigin='list',previewId=null,keyboardInput=false,skipFocusPreview=false;
+  let map=null,selectedId=null,triggerOrigin='list',previewId=null,keyboardInput=false,skipFocusPreview=false,locator=null,userLocationLayer=null;
   const markers=new Map();let markerLayer=null,rangeLayer=null,rangeRenderer=null;
   function hidePreview(){markers.get(previewId)?.getElement()?.removeAttribute('aria-describedby');previewId=null;$('marker-preview').hidden=true;$('marker-preview').setAttribute('aria-hidden','true');}
   function showPreview(id){
@@ -72,6 +72,7 @@
     if(restoreFocus){const target=origin==='map'?markers.get(id)?.getElement():[...document.querySelectorAll('.shop-card[data-id]')].find(el=>el.dataset.id===id);skipFocusPreview=origin==='map';target?.focus({preventScroll:true});}
   }
   function selectShop(id,origin='list'){
+    locator?.cancel();
     const f=byId.get(id);if(!f)return;hidePreview();selectedId=id;triggerOrigin=origin;
     const p=f.properties,images=photosFor(p),dishes=dishesFor(p),source=p.sources?.[0];
     const gallery=images.length?`<div class="shop-gallery">${images.map((photo,i)=>`<button class="shop-photo" data-photo="${photoUrl(photo.url)}" aria-label="放大${esc(photo.caption)}"><img src="${photoUrl(photo.url)}" alt="${esc(photo.caption)}" width="${photo.width}" height="${photo.height}" ${i?'loading="lazy"':''} decoding="async"></button>`).join('')}</div>`:'';
@@ -89,12 +90,28 @@
   }
   if(window.L){
     map=L.map('map',{preferCanvas:true,zoomControl:false,minZoom:9,maxZoom:18}).setView([39.929,116.434],12);
+    const locationPane=map.createPane('user-location');locationPane.style.zIndex='625';locationPane.style.pointerEvents='none';userLocationLayer=L.layerGroup().addTo(map);
     L.control.zoom({position:'bottomright'}).addTo(map);markerLayer=L.layerGroup().addTo(map);rangeLayer=L.layerGroup().addTo(map);rangeRenderer=L.canvas({padding:.5});
     const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(map);
     let loaded=false;tiles.on('tileload',()=>{loaded=true;$('tile-status').hidden=true;});tiles.on('tileerror',()=>{if(!loaded)$('tile-status').hidden=false;});
-    map.on('movestart zoomstart dragstart',hidePreview);new ResizeObserver(()=>{hidePreview();map.invalidateSize({pan:false});}).observe($('map'));
-  }else{$('tile-status').hidden=false;$('reset-map').disabled=true;}
-  $('reset-map').addEventListener('click',()=>{closeShop();fitAll();});$('shop-backdrop').addEventListener('click',()=>closeShop(true));
+    map.on('movestart zoomstart dragstart',()=>{hidePreview();locator?.cancel();});new ResizeObserver(()=>{hidePreview();map.invalidateSize({pan:false});}).observe($('map'));
+  }else{$('tile-status').hidden=false;$('reset-map').disabled=true;$('locate-map').disabled=true;}
+  function locationState({phase}){
+    const button=$('locate-map'),label=button.querySelector('span'),status=$('location-status');button.disabled=phase==='requesting';button.setAttribute('aria-busy',String(phase==='requesting'));label.textContent=phase==='requesting'?'定位中…':'我的位置';
+    const messages={requesting:'请允许浏览器访问位置，正在定位…',denied:'浏览器未允许定位。可在网站权限中开启，或直接拖动地图选择区域。',timeout:'定位等待较久，请确认授权后重试，或拖动地图选择区域。',unavailable:'暂时无法获取位置。可以重试，或直接拖动地图选择区域。',unsupported:'当前浏览器不支持定位，请拖动地图选择区域。',insecure:'定位需要安全连接，请使用 HTTPS 地址打开页面。'};
+    if(phase==='located'||phase==='idle'){status.hidden=true;return;}
+    status.textContent=messages[phase]||messages.unavailable;status.classList.toggle('is-warning',phase!=='requesting');status.hidden=false;
+  }
+  if(map&&window.FOOD_GEO){locator=window.FOOD_GEO.createLocator({getProvider:()=>navigator.geolocation,isSecure:()=>window.isSecureContext===true,onState:locationState,onPosition({latitude,longitude,accuracy}){
+    userLocationLayer.clearLayers();const latlng=[latitude,longitude];
+    const area=L.circle(latlng,{pane:'user-location',radius:Math.max(accuracy,1),color:'#3983b5',weight:1,fillColor:'#539dc9',fillOpacity:.08,interactive:false}).addTo(userLocationLayer);
+    L.circleMarker(latlng,{pane:'user-location',radius:7,color:'#fff',weight:3,fillColor:'#287fb5',fillOpacity:1,interactive:false}).addTo(userLocationLayer);
+    if(accuracy<80)map.setView(latlng,15,{animate:false});else map.fitBounds(area.getBounds(),{padding:[38,38],maxZoom:15,animate:false});
+    const status=$('location-status'),nearBeijing=latitude>=39.4&&latitude<=41.1&&longitude>=115.4&&longitude<=117.6;
+    status.textContent=!nearBeijing?'已定位。食单目前收录北京，可点击北京全览查看店铺。':accuracy>1000?'已定位到大致区域，浅蓝圈是定位范围。可拖动地图寻找店铺。':'已定位到你的位置，可拖动地图查看周边店铺。';status.classList.remove('is-warning');status.hidden=false;
+  }});}
+  $('locate-map').addEventListener('click',()=>{closeShop(false);locator?.locate();});
+  $('reset-map').addEventListener('click',()=>{locator?.cancel();$('location-status').hidden=true;closeShop();fitAll();});$('shop-backdrop').addEventListener('click',()=>closeShop(true));
   document.addEventListener('pointerdown',()=>{keyboardInput=false;});
   document.addEventListener('keydown',e=>{
     if(e.key==='Tab')keyboardInput=true;

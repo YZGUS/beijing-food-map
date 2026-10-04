@@ -8,11 +8,12 @@
   <title>北京食单 · 一人食收藏</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23245f48'/%3E%3Cpath d='M6 16h20c-1 8-5 11-10 11S7 24 6 16' fill='%23fff'/%3E%3Cpath d='M11 5v7m6-7v7m6-7v7' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="vendor/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=20261004-community">
+  <link rel="stylesheet" href="styles.css?v=20261005-location">
   <script src="vendor/leaflet.js" defer></script>
   <script src="shops.js?v=20261004-community" defer></script>
   <script src="photos.js?v=20261004-community" defer></script>
-  <script src="app.js?v=20261004-community" defer></script>
+  <script src="geolocation.js?v=20261005-location" defer></script>
+  <script src="app.js?v=20261005-location" defer></script>
 </head>
 <body>
   <header class="header">
@@ -23,8 +24,8 @@
     <aside class="sidebar" aria-label="收藏店铺"><div id="result-list" class="result-list"></div></aside>
     <section id="map-section" class="map-section" aria-label="店铺地图">
       <div id="map" aria-label="北京店铺地图，可用方向键移动、加减号缩放"></div>
-      <button id="reset-map" class="reset-map" aria-label="返回北京全览">北京全览</button>
-      <div id="tile-status" class="tile-status" role="status" hidden>地图加载较慢，店铺照片仍可浏览。</div>
+      <div class="map-controls"><button id="locate-map" class="reset-map locate-map" aria-label="获取当前位置并移动地图"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg><span>我的位置</span></button><button id="reset-map" class="reset-map" aria-label="返回北京全览">北京全览</button></div>
+      <div class="map-notices"><div id="tile-status" class="tile-status" role="status" hidden>地图加载较慢，店铺照片仍可浏览。</div><div id="location-status" class="location-status" role="status" aria-live="polite" hidden></div></div>
       <div class="map-legend"><span class="legend-pin" aria-hidden="true"></span><span>店铺位置 · 地图参考点</span></div>
       <div id="marker-preview" class="marker-preview" role="tooltip" aria-hidden="true" hidden></div>
       <div id="shop-backdrop" class="shop-backdrop" aria-hidden="true" hidden></div>
