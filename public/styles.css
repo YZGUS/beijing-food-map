@@ -28,3 +28,5 @@ dialog{border:1px solid #dce6d2;color:var(--ink);box-shadow:0 24px 100px #183523
 @media(max-width:720px){.record-trigger{font-size:13px;padding:9px 12px}.record-dialog{margin:auto auto 0;max-width:100%;width:100%;max-height:92dvh;border:0;border-radius:22px 22px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom))}.shop-gallery .shop-photo{height:250px}.detail-panel{width:100%}.record-footer{flex-wrap:wrap}.record-footer .primary-button{width:100%}.record-footer .form-hint{width:100%}.photo-viewer{margin:auto}.photo-viewer img{max-width:95vw}.review-controls{gap:7px}.review-controls .primary-button{padding:10px 12px}}
 
 .header-actions{display:flex;align-items:center;gap:10px}.account-button{min-height:44px;border:0;background:none;color:#7c8c72;font-size:13px;padding:8px}
+
+.entry-position-marker{background:none;border:0}.entry-position-marker span{display:block;width:28px;height:28px;margin:2px;background:#245f48;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px #193c4666;cursor:grab}.entry-position-marker:focus-visible{outline:3px solid #7da268;outline-offset:3px;border-radius:50%}
