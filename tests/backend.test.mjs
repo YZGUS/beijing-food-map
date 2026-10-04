@@ -28,11 +28,16 @@ test('shared state, authentication, idempotency, media ownership and restart per
  assert.equal((await request(mf,commentUrl,'POST','u1',comment)).status,201);assert.equal((await request(mf,commentUrl,'POST','u1',comment)).status,200);assert.equal((await request(mf,commentUrl,'POST','u1',{...comment,body:'变化'})).status,409);
  state=await (await request(mf,feedback,'GET','u2')).json();assert.equal(state.comments.length,1);assert.equal(state.comments[0].ate,true);assert.equal(state.comments[0].mine,false);assert.equal(JSON.stringify(state).includes('user_id'),false);
  await request(mf,'/api/comments/'+state.comments[0].id,'DELETE','u2');assert.equal((await (await request(mf,feedback)).json()).comments.length,1);
- const media=await upload(mf,'u1');assert.equal((await request(mf,media.url)).headers.get('Content-Type'),'image/png');
+ const media=await upload(mf,'u1');
+ for(const method of ['GET','HEAD']){
+  assert.equal((await request(mf,media.url,method)).status,404);assert.equal((await request(mf,media.url,method,'u2')).status,404);
+  const own=await request(mf,media.url,method,'u1');assert.equal(own.status,200);assert.equal(own.headers.get('Content-Type'),'image/png');assert.equal(own.headers.get('Cache-Control'),'private, no-store');assert.equal(own.headers.get('Vary'),'Cookie');if(method==='HEAD')assert.equal((await own.arrayBuffer()).byteLength,0);
+ }
  const b={requestKey:crypto.randomUUID(),name:'测试食堂（东四店）',address:'北京市东城区东四九条63号',dishes:['牛肉面'],mediaIds:[media.id],lat:39.936,lng:116.42,experience:'纯测试',mealDate:null,amount:35,sourceUrl:''};
  assert.equal((await request(mf,'/api/entries','POST','u2',b)).status,400);
  const [a,c]=await Promise.all([request(mf,'/api/entries','POST','u1',b),request(mf,'/api/entries','POST','u1',b)]);assert.equal(a.status,201);assert.ok([200,201].includes(c.status));const entry=(await a.json()).id;assert.equal((await c.json()).id,entry);
  assert.equal((await request(mf,'/api/entries','POST','u1',{...b,name:'修改名称'})).status,409);
+ for(const user of [null,'u1','u2'])for(const method of ['GET','HEAD']){const published=await request(mf,media.url,method,user);assert.equal(published.status,200);if(method==='HEAD')assert.equal((await published.arrayBuffer()).byteLength,0);}
  const sameBranch=await request(mf,'/api/entries','POST','u1',{...b,requestKey:crypto.randomUUID(),dishes:['饺子']});assert.equal(sameBranch.status,201);
  const cat=await (await request(mf,'/api/catalog')).json();assert.equal(cat.features.length,67);const submitted=cat.features.filter(f=>f.properties.provenance==='user');assert.equal(submitted[0].properties.branchId,submitted[1].properties.branchId);assert.equal(submitted[0].properties.sources.length,0);
  await request(mf,media.url,'DELETE','u1');assert.equal((await request(mf,media.url)).status,200);

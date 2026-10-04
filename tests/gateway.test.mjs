@@ -24,3 +24,16 @@ test('/food/ routing and private reads require a server session, with private ca
  assert.equal((await request('/food/api/session',{headers:{Cookie:cookie}})).status,200);
  }finally{app.close();await rm(dataDir,{recursive:true,force:true});}
 });
+test('public browsing permits catalog and feedback while every mutation still needs a session',async()=>{
+ const dataDir=await mkdtemp(join(os.tmpdir(),'food-public-'));
+ const app=await createFoodApplication({origin,basePath:'/food/',dataDir,publicRead:true});
+ const request=(path,options={})=>app.handle(new Request(origin+path,options));
+ try{
+ for(const path of ['/food/','/food/app.js','/food/shops.js','/food/photos.js','/food/api/catalog'])assert.equal((await request(path)).status,200);
+ const session=await (await request('/food/api/session')).json();assert.equal(session.user,null);assert.equal(session.publicRead,true);
+ const catalogue=await (await request('/food/api/catalog')).json();const entry=encodeURIComponent(catalogue.features[0].properties.entryId);
+ const feedback=await request('/food/api/entries/'+entry+'/feedback');assert.equal(feedback.status,200);assert.equal((await feedback.json()).liked,false);assert.equal(feedback.headers.get('Cache-Control'),'private, no-store');
+ const writes=[['/food/api/uploads','POST'],['/food/api/entries','POST'],['/food/api/entries/'+entry+'/like','PUT'],['/food/api/entries/'+entry+'/like','DELETE'],['/food/api/entries/'+entry+'/comments','POST'],['/food/api/comments/'+crypto.randomUUID(),'DELETE'],['/food/api/media/'+crypto.randomUUID(),'DELETE']];
+ for(const [path,method] of writes){const response=await request(path,{method,headers:{Origin:origin,'X-Food-Request':'1','oai-authenticated-user-id':'forged'}});assert.equal(response.status,401);}
+ }finally{app.close();await rm(dataDir,{recursive:true,force:true});}
+});

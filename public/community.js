@@ -15,7 +15,7 @@
  document.body.insertAdjacentHTML('beforeend',`<div id="food-toast" class="food-toast" role="status" hidden></div>
  <dialog id="photo-viewer" class="photo-viewer"><button id="close-photo" class="dialog-close" aria-label="关闭照片">×</button><img id="full-photo" alt="菜品照片"></dialog>
  <dialog id="record-dialog" class="record-dialog" aria-labelledby="record-title"><div class="recorder-heading"><div><p class="eyebrow">添一笔自己的食单</p><h2 id="record-title">记录一餐</h2></div><button id="close-record" class="dialog-close" type="button" aria-label="关闭录入">×</button></div>
- <div id="record-login" hidden><p>登录后，你的食单和大家的反馈会一起保存。</p>${signinCopy()}</div>
+ <div id="record-login" hidden><p>浏览无需登录。记录新的一餐时，请先登录以保存照片和食单。</p>${signinCopy()}</div>
  <form id="record-form"><label class="field-label" for="record-name">店铺名称<span>含分店名</span></label><input id="record-name" name="name" required maxlength="120" autocomplete="off" list="known-shops" placeholder="例如：炒豆合作社（东四总店）"><datalist id="known-shops"></datalist>
  <label class="field-label" for="record-address">位置</label><input id="record-address" name="address" required maxlength="250" placeholder="街道、门牌号或商场楼层"><details id="position-details" class="position-details"><summary>在地图上标一下 <span id="position-status">可选</span></summary><p class="form-hint">点击地图选点，或拖动标记调整。填写地址后也可直接保存。</p><div id="entry-map" aria-label="点击地图选择店铺位置"></div><button id="clear-position" class="quiet-button" type="button">清除选点</button></details>
  <label class="field-label" for="record-dishes">菜品</label><input id="record-dishes" name="dishes" required maxlength="600" placeholder="例如：肉串、黑椒土豆泥"><p class="form-hint">多道菜用顿号或逗号隔开。</p>

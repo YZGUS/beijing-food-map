@@ -8,7 +8,8 @@
 - 投稿仅需完整店名（含分店）、地址、菜品和 1–3 张菜品图；体验、人均、日期和来源链接选填。
 - 每个账号可点赞／取消，同一店铺的不同用餐记录各自保留反馈；评价可自述实际到店体验。
 - SQLite 持久化账号、投稿、点赞、评价和图片元数据，受控文件目录保存图片。部署升级不会覆盖数据。
-- 自主账号登录、邀请注册、服务器会话、CSRF 校验和登录限流。默认私有浏览，可配置公开浏览、登录后写入。
+- 未提交图片仅上传者可预览；成功关联食单后才能公开读取，GET/HEAD 使用同一边界。反馈和上传图片仍禁止共享缓存。
+- 自主账号登录、邀请注册、服务器会话、CSRF 校验和登录限流。腾讯云实例开放浏览，记录新食单、上传和评价等写入需登录。
 
 ## 本地运行
 
@@ -37,9 +38,9 @@ pnpm start
 - `/etc/beijing-food-map.env`：服务器配置，权限 `0600`，仅管理员读取。
 
 1. 构建并上传源码和 `dist`，安装锁定的生产依赖。
-2. 将 `.env.example` 的配置写入服务器专用配置文件；`APP_ORIGIN` 为真实 HTTPS 域名或已配置证书的 IP，`BASE_PATH=/food/`。
+2. 将 `.env.example` 的配置写入服务器专用配置文件；`APP_ORIGIN` 为真实 HTTPS 域名或已配置证书的 IP，`BASE_PATH=/food/`，`PUBLIC_READ=true` 开放查看；改为 false 可恢复私有浏览。
 3. 使用 `deploy/beijing-food-map.service` 启动独立 systemd 服务，Node 只监听 `127.0.0.1:8790`。
-4. 将 `deploy/nginx-food.conf` 包含在现有 HTTPS server 中；运行 `nginx -t` 成功后 reload。模板保留 `/food/` 前缀给 Node 处理，不占用现有根路径。
+4. 将 `deploy/nginx-food-limits.conf` 安装到 Nginx 的 HTTP 上下文（例如 `/etc/nginx/conf.d/`），将 `deploy/nginx-food.conf` 包含在现有 HTTPS server 中；运行 `nginx -t` 成功后 reload。动态 API 按 IP 5 次/秒、突发20限流，超量返回429；静态照片不共用该额度。模板保留 `/food/` 前缀给 Node 处理，不占用现有根路径。
 5. 使用 `deploy/backup.mjs` 备份数据库与图片，升级前先备份；回滚切换代码软链接即可，数据库迁移保持追加。
 
 ## 源码与数据边界

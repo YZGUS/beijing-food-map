@@ -115,10 +115,12 @@ export default {async fetch(request,env){
   if(path==='/api/session'&&request.method==='GET')return json({user:user?{name:user.name}:null});
   if(path==='/api/catalog'&&request.method==='GET')return json(await catalogue(db));
   const mediaMatch=path.match(/^\/api\/media\/([a-f0-9-]{36})$/);
-  if(mediaMatch&&request.method==='GET'){
+  if(mediaMatch&&['GET','HEAD'].includes(request.method)){
    const m=await db.prepare('SELECT * FROM media WHERE id=?').bind(mediaMatch[1]).first();if(!m)throw new HttpError(404,'照片不存在');
-   const object=await env.BUCKET.get(m.object_key);if(!object)throw new HttpError(404,'照片不存在');
-   return new Response(object.body,{headers:{'Content-Type':m.mime,'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'"}});
+   const published=await db.prepare('SELECT 1 FROM entry_media em JOIN entries e ON e.id=em.entry_id WHERE em.media_id=? LIMIT 1').bind(m.id).first();
+   if(!published&&m.owner!==user?.id)throw new HttpError(404,'照片不存在');
+   const object=await env.BUCKET[request.method==='HEAD'?'head':'get'](m.object_key);if(!object)throw new HttpError(404,'照片不存在');
+   return new Response(request.method==='HEAD'?null:object.body,{headers:{'Content-Type':m.mime,'Content-Length':String(m.bytes),'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'"}});
   }
   const entryMatch=path.match(/^\/api\/entries\/([^/]+)\/(feedback|like|comments)$/);
   if(entryMatch&&request.method==='GET'&&entryMatch[2]==='feedback')return json(await feedback(db,decodeURIComponent(entryMatch[1]),user));
