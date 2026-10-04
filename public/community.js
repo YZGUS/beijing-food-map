@@ -16,7 +16,7 @@
  <dialog id="photo-viewer" class="photo-viewer"><button id="close-photo" class="dialog-close" aria-label="关闭照片">×</button><img id="full-photo" alt="菜品照片"></dialog>
  <dialog id="record-dialog" class="record-dialog" aria-labelledby="record-title"><div class="recorder-heading"><div><p class="eyebrow">添一笔自己的食单</p><h2 id="record-title">记录一餐</h2></div><button id="close-record" class="dialog-close" type="button" aria-label="关闭录入">×</button></div>
  <div id="record-login" hidden><p>浏览无需登录。记录新的一餐时，请先登录以保存照片和食单。</p>${signinCopy()}</div>
- <form id="record-form"><label class="field-label" for="record-name">店铺名称<span>含分店名</span></label><input id="record-name" name="name" required maxlength="120" autocomplete="off" list="known-shops" placeholder="例如：炒豆合作社（东四总店）"><datalist id="known-shops"></datalist>
+ <form id="record-form"><label class="field-label" for="record-name">店铺名称<span>含分店名</span></label><input id="record-name" name="name" required maxlength="120" autocomplete="off" placeholder="输入店名，例如：炒豆合作社（东四总店）">
  <label class="field-label" for="record-address">位置</label><input id="record-address" name="address" required maxlength="250" placeholder="街道、门牌号或商场楼层"><details id="position-details" class="position-details"><summary>在地图上标一下 <span id="position-status">可选</span></summary><p class="form-hint">点击地图选点，或拖动标记调整。填写地址后也可直接保存。</p><div id="entry-map" aria-label="点击地图选择店铺位置"></div><button id="clear-position" class="quiet-button" type="button">清除选点</button></details>
  <label class="field-label" for="record-dishes">菜品</label><input id="record-dishes" name="dishes" required maxlength="600" placeholder="例如：肉串、黑椒土豆泥"><p class="form-hint">多道菜用顿号或逗号隔开。</p>
  <div class="field-label">菜品图片 <span>1–3 张</span></div><label class="photo-upload" for="record-photos"><span class="upload-symbol">＋</span><strong>添加这餐的照片</strong><small>JPG、PNG、WebP · 每张 5MB 以内</small><input id="record-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div id="photo-previews" class="photo-previews"></div>
@@ -59,17 +59,12 @@
   try{const data=await api('/api/entries/'+encodeURIComponent(id)+'/feedback');if(section.isConnected)render(data);}catch(e){if(section.isConnected){status.textContent=e.message;const retry=document.createElement('button');retry.className='quiet-button';retry.textContent='重新载入';retry.onclick=async()=>{retry.disabled=true;try{render(await api('/api/entries/'+encodeURIComponent(id)+'/feedback'));retry.remove();}catch(e){status.firstChild.textContent=e.message;retry.disabled=false;}};status.append(retry);}}
  }
  window.FOOD_COMMUNITY={mount};
- let entryMap=null,pointMarker=null,position=null,branchId=null,files=[],busy=false,requestKey=crypto.randomUUID();
+ let entryMap=null,pointMarker=null,position=null,files=[],busy=false,requestKey=crypto.randomUUID();
  const dialog=$('record-dialog'),recordForm=$('record-form');
- function updateKnownShops(){const unique=new Map(window.FOOD_MAP.getFeatures().map(f=>[f.properties.branchId||f.properties.id,f]));$('known-shops').innerHTML=[...unique.values()].map(f=>`<option value="${esc(f.properties.name)}"></option>`).join('');}
  function setPosition(lat,lng){requestKey=crypto.randomUUID();position={lat,lng};$('position-status').textContent='已选点';if(entryMap){if(!pointMarker){pointMarker=L.marker([lat,lng],{draggable:true,alt:'选中的店铺位置',icon:L.divIcon({className:'entry-position-marker',html:'<span aria-hidden="true"></span>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(entryMap);pointMarker.on('dragend',()=>{const v=pointMarker.getLatLng();setPosition(v.lat,v.lng);});}else pointMarker.setLatLng([lat,lng]);}}
  function clearPosition(){requestKey=crypto.randomUUID();position=null;$('position-status').textContent='可选';if(pointMarker){pointMarker.remove();pointMarker=null;}}
- $('position-details').addEventListener('toggle',()=>{if(!$('position-details').open)return;if(!entryMap&&window.L){entryMap=L.map('entry-map',{minZoom:9,maxZoom:18}).setView([39.925,116.42],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(entryMap);entryMap.on('click',e=>{branchId=null;setPosition(e.latlng.lat,e.latlng.lng);});if(position)setPosition(position.lat,position.lng);}if(entryMap){requestAnimationFrame(()=>entryMap.invalidateSize());if(position)entryMap.setView([position.lat,position.lng],15);}});
- $('clear-position').onclick=()=>{branchId=null;clearPosition();};
- function useKnownShop(){branchId=null;clearPosition();const f=window.FOOD_MAP.getFeatures().find(f=>f.properties.name===$('record-name').value.trim());if(!f)return;branchId=f.properties.branchId||f.properties.id;$('record-address').value=f.properties.externalAddress||f.properties.address;if(f.geometry?.type==='Point')setPosition(f.geometry.coordinates[1],f.geometry.coordinates[0]);}
- $('record-name').addEventListener('input',useKnownShop);
- $('record-name').addEventListener('change',useKnownShop);
- $('record-address').addEventListener('input',()=>{branchId=null;clearPosition();});
+ $('position-details').addEventListener('toggle',()=>{if(!$('position-details').open)return;if(!entryMap&&window.L){entryMap=L.map('entry-map',{minZoom:9,maxZoom:18}).setView([39.925,116.42],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(entryMap);entryMap.on('click',e=>setPosition(e.latlng.lat,e.latlng.lng));if(position)setPosition(position.lat,position.lng);}if(entryMap){requestAnimationFrame(()=>entryMap.invalidateSize());if(position)entryMap.setView([position.lat,position.lng],15);}});
+ $('clear-position').onclick=clearPosition;
  function previews(){
   $('photo-previews').innerHTML=files.map((f,i)=>`<div class="photo-preview"><img src="${f.preview}" alt="菜品照片 ${i+1}"><button type="button" data-remove="${i}" aria-label="删除第${i+1}张照片">×</button></div>`).join('');
   $('photo-previews').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(busy)return;requestKey=crypto.randomUUID();const item=files.splice(Number(b.dataset.remove),1)[0];URL.revokeObjectURL(item.preview);if(item.media)api('/api/media/'+item.media.id,{method:'DELETE'}).catch(()=>{});previews();});
@@ -83,7 +78,7 @@
  function closeRecord(){if(busy)return;dialog.close();$('add-record').focus();}
  $('close-record').onclick=closeRecord;dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});dialog.addEventListener('click',e=>{if(e.target===dialog)closeRecord();});
  $('add-record').onclick=async()=>{
-  if(window.FOOD_MAP.getSelected())window.FOOD_MAP.closeShop();updateKnownShops();dialog.showModal();
+  if(window.FOOD_MAP.getSelected())window.FOOD_MAP.closeShop();dialog.showModal();
   if(!sessionReady){$('record-progress').textContent='正在连接…';try{const data=await api('/api/session');user=data.user;sessionReady=true;$('record-progress').textContent='分享一道值得记录的菜。';}catch(e){$('record-error').hidden=false;$('record-error').textContent=e.message;}}
   $('record-login').hidden=!!user;recordForm.hidden=!user;
  };
@@ -104,11 +99,17 @@
     const form=new FormData();form.append('photo',blob,'dish.jpg');files[i].media=await api('/api/uploads',{method:'POST',body:form});
    }
    $('record-progress').textContent='正在保存食单…';
-   const result=await api('/api/entries',{method:'POST',body:{name:$('record-name').value.trim(),address:$('record-address').value.trim(),dishes,mediaIds:files.map(f=>f.media.id),lat:position?.lat??null,lng:position?.lng??null,branchId,experience:$('record-experience').value.trim(),mealDate:$('record-date').value||null,amount:$('record-amount').value===''?null:Number($('record-amount').value),sourceUrl:$('record-source').value.trim(),requestKey}});
+   const result=await api('/api/entries',{method:'POST',body:{name:$('record-name').value.trim(),address:$('record-address').value.trim(),dishes,mediaIds:files.map(f=>f.media.id),lat:position?.lat??null,lng:position?.lng??null,experience:$('record-experience').value.trim(),mealDate:$('record-date').value||null,amount:$('record-amount').value===''?null:Number($('record-amount').value),sourceUrl:$('record-source').value.trim(),requestKey}});
    const data=await api('/api/catalog');window.FOOD_MAP.replaceFeatures(data.features);
-   files.forEach(f=>URL.revokeObjectURL(f.preview));files=[];previews();recordForm.reset();clearPosition();branchId=null;requestKey=crypto.randomUUID();$('record-progress').textContent='分享一道值得记录的菜。';dialog.close();window.FOOD_MAP.selectShop(result.id);notice('这一餐已保存到食单');
+   files.forEach(f=>URL.revokeObjectURL(f.preview));files=[];previews();recordForm.reset();clearPosition();requestKey=crypto.randomUUID();$('record-progress').textContent='分享一道值得记录的菜。';dialog.close();window.FOOD_MAP.selectShop(result.id);notice('这一餐已保存到食单');
   }catch(e){err.hidden=false;err.textContent=e.message;$('record-progress').textContent='已保留填写内容，可以重试。';}
   finally{busy=false;$('submit-record').disabled=false;$('close-record').disabled=false;recordForm.querySelectorAll('input,textarea').forEach(el=>el.disabled=false);}
+ };
+ $('export-places').onclick=async()=>{
+  const button=$('export-places');button.disabled=true;button.setAttribute('aria-busy','true');
+  try{const data=await api('/api/catalog');if(!window.FOOD_EXPORT)throw new Error('导出组件尚未载入，请刷新重试');window.FOOD_EXPORT.download(data.features,{baseUrl:new URL('./',location.href).href});notice('地点已导出，可把文件交给 AI 分析规划。');}
+  catch(e){notice('导出未完成：'+e.message);}
+  finally{button.disabled=false;button.setAttribute('aria-busy','false');}
  };
  $('record-date').max=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'});
  Promise.allSettled([api('/api/session'),api('/api/catalog')]).then(results=>{

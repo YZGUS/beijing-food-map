@@ -75,15 +75,15 @@
     locator?.cancel();
     const f=byId.get(id);if(!f)return;hidePreview();selectedId=id;triggerOrigin=origin;
     const p=f.properties,images=photosFor(p),dishes=dishesFor(p),source=p.sources?.[0];
-    const amap=window.FOOD_TRAVEL?.buildAmapSearch(p),amapWeb=window.FOOD_TRAVEL?.buildAmapSearch(p,{callNative:false});
+    const amapEntry=window.FOOD_TRAVEL?.getAmapEntry(p,{userAgent:navigator.userAgent,platform:navigator.platform,maxTouchPoints:navigator.maxTouchPoints});
     const gallery=images.length?`<div class="shop-gallery">${images.map((photo,i)=>`<button class="shop-photo" data-photo="${photoUrl(photo.url)}" aria-label="放大${esc(photo.caption)}"><img src="${photoUrl(photo.url)}" alt="${esc(photo.caption)}" width="${photo.width}" height="${photo.height}" ${i?'loading="lazy"':''} decoding="async"></button>`).join('')}</div>`:'';
     $('detail-panel').innerHTML=`<div class="shop-close-rail"><button id="close-detail" class="detail-close" aria-label="关闭店铺详情">×</button></div>${gallery}<div class="shop-detail-header"><span class="shop-category">${esc(category(p))}${negative(p)?'<span class="taste-note">作者不推荐</span>':''}</span><h2 id="shop-title">${esc(p.name)}</h2></div><div class="detail-body"><div class="dish-chips">${dishes.map(d=>`<span>${esc(d)}</span>`).join('')}</div><div class="shop-location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><p>${esc(address(p))}${!hasPoint(f)?'<small class="location-pending">地图位置待补</small>':''}</p></div>${source?`<a class="original-note-link" href="${safeUrl(source.url)}" target="_blank" rel="noopener noreferrer">打开小红书原帖</a>`:''}<details class="shop-evidence"><summary>原帖出处</summary><div class="note-source-list">${(p.sources||[]).map(sourceCard).join('')}</div>${p.locationCaveat?`<p class="location-caveat">${esc(p.locationCaveat)}</p>`:''}</details></div>`;
     if(!p.sources?.length)$('detail-panel').querySelector('.shop-evidence')?.remove();
     const body=$('detail-panel').querySelector('.detail-body'),actions=document.createElement('div');actions.className='shop-actions';
-    if(amap){const link=document.createElement('a');link.className='amap-link';link.href=amap;link.textContent='高德地图查看';link.rel='noopener';actions.append(link);}
+    if(amapEntry){const link=document.createElement('a');link.className='amap-link';link.href=amapEntry.href;link.textContent=amapEntry.label;link.rel='noopener';actions.append(link);}
     const original=body.querySelector('.original-note-link');if(original)actions.append(original);actions.classList.toggle('has-source',!!original);
     body.querySelector('.shop-location').after(actions);
-    if(amapWeb){const hint=document.createElement('p');hint.className='amap-hint';hint.innerHTML=`确认分店后规划路线 · <a href="${esc(amapWeb)}" target="_blank" rel="noopener noreferrer">网页版</a>`;actions.after(hint);}
+    if(amapEntry){const hint=document.createElement('p');hint.className='amap-hint';hint.innerHTML=`${esc(amapEntry.hint)} <a href="${esc(amapEntry.webHref)}" target="_blank" rel="noopener noreferrer">网页版</a>`;actions.after(hint);}
     window.FOOD_COMMUNITY?.mount(p,$('detail-panel').querySelector('.detail-body'));
     const panel=$('detail-panel'),mobile=matchMedia('(max-width: 720px)').matches;
     panel.hidden=false;panel.scrollTop=0;panel.setAttribute('role',mobile?'dialog':'region');panel.setAttribute('aria-modal',String(mobile));panel.setAttribute('aria-labelledby','shop-title');
