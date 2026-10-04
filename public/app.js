@@ -90,7 +90,7 @@
   if(window.L){
     map=L.map('map',{preferCanvas:true,zoomControl:false,minZoom:9,maxZoom:18}).setView([39.929,116.434],12);
     L.control.zoom({position:'bottomright'}).addTo(map);markerLayer=L.layerGroup().addTo(map);rangeLayer=L.layerGroup().addTo(map);rangeRenderer=L.canvas({padding:.5});
-    const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(map);
+    const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(map);
     let loaded=false;tiles.on('tileload',()=>{loaded=true;$('tile-status').hidden=true;});tiles.on('tileerror',()=>{if(!loaded)$('tile-status').hidden=false;});
     map.on('movestart zoomstart dragstart',hidePreview);new ResizeObserver(()=>{hidePreview();map.invalidateSize({pan:false});}).observe($('map'));
   }else{$('tile-status').hidden=false;$('reset-map').disabled=true;}
