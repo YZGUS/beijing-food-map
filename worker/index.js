@@ -36,7 +36,7 @@ async function seedDatabase(db){
  const pending=(async()=>{
   for(let i=0;i<seed.features.length;i+=15){const ops=[];for(const f of seed.features.slice(i,i+15)){
    const p=f.properties,[lng,lat]=f.geometry?.coordinates||[null,null];
-   ops.push(db.prepare('INSERT INTO branches (id,name,address,lat,lng,match_key) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,address=excluded.address,lat=excluded.lat,lng=excluded.lng,match_key=excluded.match_key').bind(p.id,p.name,p.externalAddress||p.address||'地点待补',lat,lng,await branchKey(p.name,p.externalAddress||p.address||'地点待补')));
+   ops.push(db.prepare("INSERT INTO branches (id,name,address,lat,lng,match_key,location_source) VALUES (?,?,?,?,?,?,'seed') ON CONFLICT(id) DO UPDATE SET name=excluded.name,address=excluded.address,lat=COALESCE(branches.lat,excluded.lat),lng=COALESCE(branches.lng,excluded.lng),match_key=CASE WHEN EXISTS (SELECT 1 FROM branches AS other WHERE other.match_key=excluded.match_key AND other.id<>branches.id) THEN branches.match_key ELSE excluded.match_key END,location_source=CASE WHEN branches.lat IS NULL AND excluded.lat IS NOT NULL THEN 'seed' ELSE branches.location_source END").bind(p.id,p.name,p.externalAddress||p.address||'地点待补',lat,lng,await branchKey(p.name,p.externalAddress||p.address||'地点待补')));
    ops.push(db.prepare('INSERT INTO entries (id,branch_id,dishes,provenance,created_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET dishes=excluded.dishes').bind('seed:'+p.id,p.id,JSON.stringify(p.dishes||[]),'seed','2026-10-04T00:00:00Z'));
   }await db.batch(ops);}
  })();initialized.set(db,pending);try{await pending;}catch(e){initialized.delete(db);throw e;}
@@ -54,9 +54,46 @@ async function feedback(db,id,user){
  db.prepare('SELECT id,display_name,body,ate_claim,created_at,user_id FROM comments WHERE entry_id=? ORDER BY created_at DESC,id DESC LIMIT 100').bind(id).all()]);
  return {likeCount:total.n,liked:!!mine,comments:rows.results.map(r=>({id:r.id,name:r.display_name,body:r.body,ate:!!r.ate_claim,createdAt:r.created_at,mine:r.user_id===user?.id}))};
 }
+async function requireBranch(db,id){if(!await db.prepare('SELECT id FROM branches WHERE id=?').bind(id).first())throw new HttpError(404,'这家分店不存在');}
+async function queueFeedback(db,branchId,user){
+ await requireBranch(db,branchId);
+ const rows=await db.prepare('SELECT * FROM queue_reports WHERE branch_id=? AND deleted_at IS NULL ORDER BY observed_at DESC,id DESC LIMIT 20').bind(branchId).all();
+ return {branchId,source:'user',status:rows.results.length?'reported':'unknown',reports:rows.results.map(r=>({id:r.id,observedAt:r.observed_at,waitMinutes:r.wait_minutes,kind:r.kind,partySize:r.party_size,note:r.note,name:r.display_name,createdAt:r.created_at,mine:r.user_id===user?.id,source:'user'}))};
+}
+function observationTime(value){
+ if(typeof value!=='string')throw new HttpError(400,'请选择观察等位情况的时间');
+ const parts=value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/),timestamp=Date.parse(value);
+ if(!parts||!Number.isFinite(timestamp))throw new HttpError(400,'观察时间格式不正确');
+ const [,year,month,day,hour,minute,second]=parts.map((v,i)=>i>0&&i<7?Number(v):v);
+ const days=new Date(Date.UTC(year,month,0)).getUTCDate();
+ if(month<1||month>12||day<1||day>days||hour>23||minute>59||(second!==undefined&&second>59))throw new HttpError(400,'观察时间不正确');
+ if(timestamp>Date.now()||timestamp<Date.now()-30*86400000)throw new HttpError(400,'请填写最近30天内已发生的等位情况');
+ return new Date(timestamp).toISOString();
+}
+async function createQueueReport(request,db,branchId,user){
+ await requireBranch(db,branchId);
+ const b=await bodyJson(request),key=clean(b.requestKey,36,true);if(!uuid.test(key))throw new HttpError(400,'请重新提交');
+ const observedAt=observationTime(b.observedAt),waitMinutes=b.waitMinutes,kind=b.kind,partySize=b.partySize,note=clean(b.note??'',250);
+ if(!Number.isInteger(waitMinutes)||waitMinutes<0||waitMinutes>600||!['estimate','elapsed','actual'].includes(kind)||!Number.isInteger(partySize)||partySize<1||partySize>20)throw new HttpError(400,'请检查等位时长、记录类型和用餐人数');
+ const payloadHash=await hash({branchId,observedAt,waitMinutes,kind,partySize,note});
+ const previous=await db.prepare('SELECT id,payload_hash FROM queue_reports WHERE user_id=? AND request_key=?').bind(user.id,key).first();
+ if(previous){if(previous.payload_hash!==payloadHash)throw new HttpError(409,'等位内容已变化，请重新提交');return json(await queueFeedback(db,branchId,user));}
+ const createdAt=now(),cutoff=new Date(Date.now()-600000).toISOString();
+ const inserted=await db.prepare('INSERT INTO queue_reports (id,branch_id,user_id,display_name,observed_at,wait_minutes,kind,party_size,note,request_key,payload_hash,created_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM queue_reports WHERE user_id=? AND created_at>?)<10 ON CONFLICT(user_id,request_key) DO NOTHING').bind(crypto.randomUUID(),branchId,user.id,user.name,observedAt,waitMinutes,kind,partySize,note,key,payloadHash,createdAt,user.id,cutoff).run();
+ const saved=await db.prepare('SELECT payload_hash FROM queue_reports WHERE user_id=? AND request_key=?').bind(user.id,key).first();
+ if(!saved)throw new HttpError(429,'操作比较频繁，请稍后再试');
+ if(saved.payload_hash!==payloadHash)throw new HttpError(409,'等位内容已变化，请重新提交');
+ return json(await queueFeedback(db,branchId,user),inserted.meta.changes?201:200);
+}
 async function catalogue(db){
- const rows=await db.prepare("SELECT e.*,b.name,b.address,b.lat,b.lng FROM entries e JOIN branches b ON b.id=e.branch_id WHERE e.provenance='user' ORDER BY e.created_at DESC,e.id DESC LIMIT 1000").all();
- return {type:'FeatureCollection',features:[...rows.results.map(r=>({type:'Feature',geometry:r.lat===null?null:{type:'Point',coordinates:[r.lng,r.lat]},properties:{id:r.id,entryId:r.id,branchId:r.branch_id,name:r.name,address:r.address,dishes:parse(r.dishes),photos:parse(r.media_ids).map(id=>({url:'api/media/'+id,caption:parse(r.dishes).join('、'),kind:'dish',width:1200,height:900})),experience:r.experience,mealDate:r.meal_date,amount:r.amount,creatorName:r.display_name,createdAt:r.created_at,sourceUrl:r.source_url,sources:[],locationAccuracy:r.lat===null?'pending':'user',locationCaveat:r.lat===null?'已记录文字地址，地图位置尚未添加。':'位置由分享者在地图上选择。',provenance:'user'}})),...seed.features.map(f=>({...f,properties:{...f.properties,entryId:'seed:'+f.properties.id,branchId:f.properties.id,address:f.properties.externalAddress||f.properties.address,provenance:'seed'}}))]};
+ const [rows,branchRows]=await Promise.all([
+  db.prepare("SELECT e.*,b.name,b.address,b.lat,b.lng,b.location_source FROM entries e JOIN branches b ON b.id=e.branch_id WHERE e.provenance='user' ORDER BY e.created_at DESC,e.id DESC LIMIT 1000").all(),
+  db.prepare('SELECT id,name,address,lat,lng,location_source FROM branches').all(),
+ ]);
+ const branches=new Map(branchRows.results.map(r=>[r.id,r])),originals=new Map(seed.features.map(f=>[f.properties.id,f.properties]));
+ const brand=branchId=>{const p=originals.get(branchId);return {brandId:p?.brandId,brandName:p?.brandName,aliases:p?.aliases};};
+ const location=r=>{const p=originals.get(r.id||r.branch_id);return r.lat===null||r.lng===null?{locationAccuracy:'pending',locationCaveat:p?.locationCaveat||'已记录文字地址，地图位置尚未添加。',accuracyMeters:null}:r.location_source==='seed'?{locationAccuracy:p?.locationAccuracy||'reference',locationCaveat:p?.locationCaveat||'地图参考位置，未核验店铺入口。',accuracyMeters:p?.accuracyMeters||null}:{locationAccuracy:'user',locationCaveat:'位置由分享者在地图上选择，尚未核验店铺入口。',accuracyMeters:null};};
+ return {type:'FeatureCollection',features:[...rows.results.map(r=>({type:'Feature',geometry:r.lat===null||r.lng===null?null:{type:'Point',coordinates:[r.lng,r.lat]},properties:{id:r.id,entryId:r.id,branchId:r.branch_id,name:r.name,address:r.address,dishes:parse(r.dishes),photos:parse(r.media_ids).map(id=>({url:'api/media/'+id,caption:parse(r.dishes).join('、'),kind:'dish',width:1200,height:900})),experience:r.experience,mealDate:r.meal_date,amount:r.amount,creatorName:r.display_name,createdAt:r.created_at,sourceUrl:r.source_url,sources:[],...brand(r.branch_id),...location({...r,id:r.branch_id}),provenance:'user'}})),...seed.features.map(f=>{const b=branches.get(f.properties.id);return {...f,geometry:b?.lat!==null&&b?.lng!==null&&b?{type:'Point',coordinates:[b.lng,b.lat]}:null,properties:{...f.properties,...(b?location(b):{locationAccuracy:'pending',accuracyMeters:null}),name:b?.name||f.properties.name,entryId:'seed:'+f.properties.id,branchId:f.properties.id,address:b?.address||f.properties.externalAddress||f.properties.address,externalAddress:b?.address||f.properties.externalAddress||f.properties.address,provenance:'seed'}};})]};
 }
 async function createEntry(request,env,db,user){
  const b=await bodyJson(request),key=clean(b.requestKey,36,true);if(!uuid.test(key))throw new HttpError(400,'请重新提交');
@@ -76,11 +113,12 @@ async function createEntry(request,env,db,user){
  await rate(db,'entries','creator',user.id,20);
  for(const id of mediaIds){const m=await db.prepare('SELECT object_key,owner FROM media WHERE id=?').bind(id).first();if(!m||m.owner!==user.id||!await env.BUCKET.head(m.object_key))throw new HttpError(400,'照片未保存成功，请重新上传');}
  let branchId=b.branchId||null,branch;
- if(branchId){branch=await db.prepare('SELECT * FROM branches WHERE id=?').bind(branchId).first();if(!branch||branch.name!==name||branch.address!==address)throw new HttpError(400,'店铺或地址已修改，请重新选择位置');lat=branch.lat;lng=branch.lng;}
+ if(branchId){branch=await db.prepare('SELECT * FROM branches WHERE id=?').bind(branchId).first();if(!branch||branch.name!==name||branch.address!==address)throw new HttpError(400,'店铺或地址已修改，请重新选择位置');}
  const matchKey=await branchKey(name,address);
  if(!branch){branch=await db.prepare('SELECT * FROM branches WHERE match_key=?').bind(matchKey).first();if(branch)branchId=branch.id;}
  branchId=branchId||'branch:'+matchKey.slice(0,32);const id='entry:'+crypto.randomUUID();
- const ops=[];if(!branch)ops.push(db.prepare('INSERT INTO branches (id,name,address,lat,lng,match_key) VALUES (?,?,?,?,?,?) ON CONFLICT(match_key) DO NOTHING').bind(branchId,name,address,lat,lng,matchKey));
+ const ops=[];if(!branch)ops.push(db.prepare("INSERT INTO branches (id,name,address,lat,lng,match_key,location_source) VALUES (?,?,?,?,?,?,'user') ON CONFLICT(match_key) DO NOTHING").bind(branchId,name,address,lat,lng,matchKey));
+ else if(lat!==null&&branch.lat===null&&branch.lng===null)ops.push(db.prepare("UPDATE branches SET lat=?,lng=?,location_source='user' WHERE id=? AND lat IS NULL AND lng IS NULL").bind(lat,lng,branchId));
  ops.push(db.prepare('INSERT INTO entries (id,branch_id,dishes,media_ids,experience,meal_date,amount,source_url,provenance,creator,display_name,request_key,payload_hash,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(creator,request_key) DO NOTHING').bind(id,branchId,JSON.stringify(dishes),JSON.stringify(mediaIds),experience,mealDate,amount,sourceUrl,'user',user.id,user.name,key,payloadHash,now()));
  for(const mediaId of mediaIds)ops.push(db.prepare('INSERT INTO entry_media (entry_id,media_id) SELECT id,? FROM entries WHERE creator=? AND request_key=? AND payload_hash=? ON CONFLICT(entry_id,media_id) DO NOTHING').bind(mediaId,user.id,key,payloadHash));
  await db.batch(ops);const saved=await db.prepare('SELECT id,payload_hash FROM entries WHERE creator=? AND request_key=?').bind(user.id,key).first();
@@ -124,9 +162,12 @@ export default {async fetch(request,env){
   }
   const entryMatch=path.match(/^\/api\/entries\/([^/]+)\/(feedback|like|comments)$/);
   if(entryMatch&&request.method==='GET'&&entryMatch[2]==='feedback')return json(await feedback(db,decodeURIComponent(entryMatch[1]),user));
+  const queueMatch=path.match(/^\/api\/branches\/([^/]+)\/queue$/);
+  if(queueMatch&&request.method==='GET')return json(await queueFeedback(db,decodeURIComponent(queueMatch[1]),user));
   const writer=requireWrite(request,env);
   if(path==='/api/uploads'&&request.method==='POST')return await upload(request,env,db,writer);
   if(path==='/api/entries'&&request.method==='POST')return await createEntry(request,env,db,writer);
+  if(queueMatch&&request.method==='POST')return await createQueueReport(request,db,decodeURIComponent(queueMatch[1]),writer);
   if(mediaMatch&&request.method==='DELETE'){
    const deleted=await db.prepare('DELETE FROM media WHERE id=? AND owner=? AND NOT EXISTS (SELECT 1 FROM entry_media WHERE media_id=media.id) RETURNING object_key').bind(mediaMatch[1],writer.id).first();
    if(deleted)await env.BUCKET.delete(deleted.object_key);return json({ok:true});
@@ -148,6 +189,12 @@ export default {async fetch(request,env){
   }
   const commentMatch=path.match(/^\/api\/comments\/([a-f0-9-]{36})$/);
   if(commentMatch&&request.method==='DELETE'){await db.prepare('DELETE FROM comments WHERE id=? AND user_id=?').bind(commentMatch[1],writer.id).run();return json({ok:true});}
+  const queueReportMatch=path.match(/^\/api\/queue-reports\/([a-f0-9-]{36})$/);
+  if(queueReportMatch&&request.method==='DELETE'){
+   const deleted=await db.prepare('UPDATE queue_reports SET deleted_at=? WHERE id=? AND user_id=? AND deleted_at IS NULL RETURNING id').bind(now(),queueReportMatch[1],writer.id).first();
+   if(!deleted)throw new HttpError(404,'这条等位记录不存在');
+   return json({ok:true});
+  }
   throw new HttpError(404,'页面不存在');
  }catch(e){if(e instanceof HttpError)return json({error:e.message},e.status);console.error('Food API failure',path,e?.message);return json({error:'暂时无法保存或载入，请稍后重试。已填写的内容会保留。'},503);}
 }};

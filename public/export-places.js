@@ -39,6 +39,7 @@
   const accuracy=properties.locationAccuracy;
   let description=accuracy==='user'?'分享者在地图上手选的位置，未核实门店入口':accuracy==='mallApprox'?'商场参考点，未核实门店入口':accuracy==='streetApprox'?'街道参考点，未核实门店入口':accuracy==='areaApprox'?'街区参考点，未核实门店入口':'地图参考点，未核实门店入口';
   if(Number.isFinite(properties.accuracyMeters)&&properties.accuracyMeters>0)description+='；参考范围约 '+properties.accuracyMeters+' 米（非实测误差）';
+  if(properties.operatingStatus==='unverified')description+='；营业状态待确认';
   return description;
  }
  function amapFor(name,address){
@@ -53,6 +54,7 @@
    const p=feature.properties,name=p.name.trim(),address=String(p.externalAddress||p.address||'').trim();
    const point=pointFor(feature),photos=Array.isArray(p.photos)?p.photos:Array.isArray(photosById[p.id])?photosById[p.id]:[];
    const sources=Array.isArray(p.sources)?[...p.sources]:[];
+   if(Array.isArray(p.locationSources))sources.push(...p.locationSources.map(source=>({url:source.url,title:source.title||'公开地点资料'})));
    if(typeof p.sourceUrl==='string'&&p.sourceUrl.trim())sources.push({url:p.sourceUrl,title:'分享者提供的来源'});
    const sourceLinks=new Map();
    for(const source of sources){const url=publicURL(source?.url,base);if(url&&!sourceLinks.has(url))sourceLinks.set(url,{url,title:String(source.title||'公开来源')});}

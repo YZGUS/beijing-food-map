@@ -61,11 +61,11 @@ test('one click downloads UTF-8 Markdown with a predictable filename and release
  assert.equal(clicked,true);assert.equal(removed,true);assert.equal(anchor.download,'beijing-food-places-2026-10-05.md');assert.equal(anchor.href,'blob:test-export');assert.equal(result.count,1);assert.equal(blob.type,'text/markdown;charset=utf-8');assert.match(await blob.text(),/牛肉面/);assert.equal(revoked,false);scheduled();assert.equal(revoked,true);
 });
 
-test('the complete shipped collection exports all 65 public records and all available original images',async()=>{
+test('the complete shipped collection exports all 67 public records and all available original images',async()=>{
  const context=load();
  vm.runInNewContext(await readFile('public/shops.js','utf8'),context);vm.runInNewContext(await readFile('public/photos.js','utf8'),context);
  const features=context.window.FOOD_COLLECTION.features;
  const exportData=context.window.FOOD_EXPORT.buildGeoJSON(features,{baseUrl,exportedAt});
- assert.equal(exportData.features.length,65);assert.equal(exportData.features.filter(feature=>feature.geometry).length,35);assert.equal(exportData.features.reduce((count,feature)=>count+feature.properties.photos.length,0),76);assert.equal(exportData.features[0].properties.name,'阿光鲜烫牛肉（朝外THE BOX附近店）');
- const markdown=context.window.FOOD_EXPORT.buildMarkdown(features,{baseUrl,exportedAt});assert.equal((markdown.match(/^## \d+\./gm)||[]).length,65);assert.equal(markdown.includes('xsec_token'),false);assert.equal(markdown.includes('noteIndex'),false);assert.equal(markdown.includes('locationCaveat'),false);
+ assert.equal(exportData.features.length,67);assert.equal(exportData.features.filter(feature=>feature.geometry).length,38);assert.equal(exportData.features.reduce((count,feature)=>count+feature.properties.photos.length,0),76);assert.equal(exportData.features[0].properties.name,'阿光鲜烫牛肉（朝外THE BOX附近店）');
+ const markdown=context.window.FOOD_EXPORT.buildMarkdown(features,{baseUrl,exportedAt});assert.equal((markdown.match(/^## \d+\./gm)||[]).length,67);assert.equal(markdown.includes('xsec_token'),false);assert.equal(markdown.includes('noteIndex'),false);assert.equal(markdown.includes('locationCaveat'),false);
 });

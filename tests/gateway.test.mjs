@@ -20,7 +20,7 @@ test('/food/ routing and private reads require a server session, with private ca
  assert.equal(login.status,200);assert.match(login.headers.get('Set-Cookie'),/Path=\/food\//);
  const cookie=login.headers.get('Set-Cookie').split(';')[0];
  for(const path of ['/food/','/food/shops.js','/food/photos.js','/food/api/catalog']){const response=await request(path,{headers:{Cookie:cookie}});assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.equal(response.headers.get('Vary'),'Cookie');}
- const data=await (await request('/food/api/catalog',{headers:{Cookie:cookie}})).json();assert.equal(data.features.length,65);
+ const data=await (await request('/food/api/catalog',{headers:{Cookie:cookie}})).json();assert.equal(data.features.length,67);
  assert.equal((await request('/food/api/session',{headers:{Cookie:cookie}})).status,200);
  }finally{app.close();await rm(dataDir,{recursive:true,force:true});}
 });

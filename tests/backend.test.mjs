@@ -16,7 +16,7 @@ test('shared state, authentication, idempotency, media ownership and restart per
  const root=await mkdtemp(path.join(os.tmpdir(),'food-map-test-'));let mf=await create(root);
  try{
  for(const user of ['u1','u2']){await mf.auth.createUser({username:'test-'+user,password:'test-only-password-2026',displayName:user});const response=await mf.auth.handle(new Request(origin+'/auth/login',{method:'POST',headers:{Origin:origin,'X-Food-Request':'1','Content-Type':'application/json'},body:JSON.stringify({username:'test-'+user,password:'test-only-password-2026'})}));cookies.set(user,response.headers.get('set-cookie').split(';')[0]);}
- const catalogue=await (await request(mf,'/api/catalog')).json();assert.equal(catalogue.features.length,65);
+ const catalogue=await (await request(mf,'/api/catalog')).json();assert.equal(catalogue.features.length,67);
  const id=catalogue.features[0].properties.entryId,feedback='/api/entries/'+encodeURIComponent(id)+'/feedback',like='/api/entries/'+encodeURIComponent(id)+'/like';
  assert.equal((await request(mf,like,'PUT')).status,401);
  assert.equal((await mf.handle(new Request(origin+like,{method:'PUT',headers:{'oai-authenticated-user-id':'u1','Origin':'https://evil.test','X-Food-Request':'1',Cookie:cookies.get('u1')}}))).status,403);
@@ -39,7 +39,7 @@ test('shared state, authentication, idempotency, media ownership and restart per
  assert.equal((await request(mf,'/api/entries','POST','u1',{...b,name:'修改名称'})).status,409);
  for(const user of [null,'u1','u2'])for(const method of ['GET','HEAD']){const published=await request(mf,media.url,method,user);assert.equal(published.status,200);if(method==='HEAD')assert.equal((await published.arrayBuffer()).byteLength,0);}
  const sameBranch=await request(mf,'/api/entries','POST','u1',{...b,requestKey:crypto.randomUUID(),dishes:['饺子']});assert.equal(sameBranch.status,201);
- const cat=await (await request(mf,'/api/catalog')).json();assert.equal(cat.features.length,67);const submitted=cat.features.filter(f=>f.properties.provenance==='user');assert.equal(submitted[0].properties.branchId,submitted[1].properties.branchId);assert.equal(submitted[0].properties.sources.length,0);
+ const cat=await (await request(mf,'/api/catalog')).json();assert.equal(cat.features.length,69);const submitted=cat.features.filter(f=>f.properties.provenance==='user');assert.equal(submitted[0].properties.branchId,submitted[1].properties.branchId);assert.equal(submitted[0].properties.sources.length,0);
  await request(mf,media.url,'DELETE','u1');assert.equal((await request(mf,media.url)).status,200);
  const fakeJpeg=new FormData();fakeJpeg.append('photo',new File([new Uint8Array([255,216,255,...Array(13).fill(0)])],'fake.jpg',{type:'image/jpeg'}));assert.equal((await request(mf,'/api/uploads','POST','u1',fakeJpeg)).status,400);
  const tooLarge=await request(mf,'/api/entries','POST','u1',{filler:'x'.repeat(20000)});assert.equal(tooLarge.status,413);
@@ -47,6 +47,6 @@ test('shared state, authentication, idempotency, media ownership and restart per
  const reused=await request(mf,'/api/entries','POST','u1',{...b,requestKey:crypto.randomUUID(),name:seedBranch.properties.name,address:seedBranch.properties.externalAddress||seedBranch.properties.address,branchId:seedBranch.properties.branchId});assert.equal(reused.status,201);
  const invalid=new FormData();invalid.append('photo',new File(['<svg>fake</svg>stuff'],'fake.png',{type:'image/png'}));assert.equal((await request(mf,'/api/uploads','POST','u1',invalid)).status,415);
  await mf.close();mf=await create(root);
- assert.equal((await (await request(mf,'/api/catalog')).json()).features.length,68);assert.equal((await (await request(mf,feedback,'GET','u2')).json()).likeCount,1);assert.equal((await request(mf,media.url)).status,200);
+ assert.equal((await (await request(mf,'/api/catalog')).json()).features.length,70);assert.equal((await (await request(mf,feedback,'GET','u2')).json()).likeCount,1);assert.equal((await request(mf,media.url)).status,200);
  }finally{await mf.close();await rm(root,{recursive:true,force:true});}
 });

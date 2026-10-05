@@ -8,14 +8,17 @@
   <title>北京食单 · 一人食收藏</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23245f48'/%3E%3Cpath d='M6 16h20c-1 8-5 11-10 11S7 24 6 16' fill='%23fff'/%3E%3Cpath d='M11 5v7m6-7v7m6-7v7' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="vendor/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=20261005-share-2">
+  <link rel="stylesheet" href="styles.css?v=20261006-browse-3">
+  <link rel="stylesheet" href="queue-feedback.css?v=20261006-browse-3">
   <script src="vendor/leaflet.js" defer></script>
-  <script src="shops.js?v=20261004-community" defer></script>
+  <script src="shops.js?v=20261006-browse-3" defer></script>
   <script src="photos.js?v=20261004-community" defer></script>
-  <script src="geolocation.js?v=20261005-location" defer></script>
+  <script src="geolocation.js?v=20261006-browse-3" defer></script>
   <script src="travel-links.js?v=20261005-share-2" defer></script>
-  <script src="export-places.js?v=20261005-share-2" defer></script>
-  <script src="app.js?v=20261005-share-2" defer></script>
+  <script src="export-places.js?v=20261006-browse-3" defer></script>
+  <script src="map-groups.js?v=20261006-browse-3" defer></script>
+  <script src="queue-feedback.js?v=20261006-browse-3" defer></script>
+  <script src="app.js?v=20261006-browse-3" defer></script>
 </head>
 <body>
   <header class="header">
@@ -23,7 +26,7 @@
     <div class="header-actions"><button id="export-places" class="export-trigger" type="button" aria-label="导出地点，交给 AI 规划" title="导出地点，交给 AI 规划"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span>导出地点</span></button><button id="account-button" class="account-button" hidden>登录</button><button id="add-record" class="record-trigger">＋ 记录一餐</button></div>
   </header>
   <main class="workspace">
-    <aside class="sidebar" aria-label="收藏店铺"><div id="result-list" class="result-list"></div></aside>
+    <aside class="sidebar" aria-label="收藏店铺"><div id="list-context" class="list-context" hidden><div><strong id="list-context-label">当前位置附近</strong><small>按参考点的大致距离排列</small></div><button id="show-all-shops" type="button">全部店铺</button></div><div id="result-list" class="result-list"></div></aside>
     <section id="map-section" class="map-section" aria-label="店铺地图">
       <div id="map" aria-label="北京店铺地图，可用方向键移动、加减号缩放"></div>
       <div class="map-controls"><button id="locate-map" class="reset-map locate-map" aria-label="获取当前位置并移动地图"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg><span>我的位置</span></button><button id="reset-map" class="reset-map" aria-label="返回北京全览">北京全览</button></div>

@@ -58,7 +58,7 @@ test('a real dish photo, free-form shop and authenticated session survive a serv
       cookies.set(user, login.headers.get('Set-Cookie').split(';')[0]);
     }
     const initial = await (await request('/api/catalog')).json();
-    assert.equal(initial.features.length, 65);
+    assert.equal(initial.features.length, 67);
     assert.equal((await request('/api/uploads', {method: 'POST', body: photoForm()})).status, 401);
     assert.equal((await request('/api/uploads', {method: 'POST', user: 'owner', body: photoForm(), csrf: false})).status, 403);
     assert.equal((await request('/api/uploads', {
@@ -106,7 +106,7 @@ test('a real dish photo, free-form shop and authenticated session survive a serv
     assert.equal((await request('/api/entries', {method: 'POST', user: 'owner', body: {...entry, name: '变化的店名'}})).status, 409);
 
     let catalog = await (await request('/api/catalog')).json();
-    assert.equal(catalog.features.length, 66);
+    assert.equal(catalog.features.length, 68);
     const feature = catalog.features.find(item => item.properties.entryId === entryId);
     assert.equal(feature.properties.name, entry.name);
     assert.equal(feature.properties.address, entry.address);
@@ -151,7 +151,7 @@ test('a real dish photo, free-form shop and authenticated session survive a serv
     app = await startServer(options);
     assert.deepEqual((await (await request('/api/session', {user: 'owner'})).json()).user, {name: 'owner'});
     const afterRestart = await (await request('/api/catalog')).json();
-    assert.equal(afterRestart.features.length, 68);
+    assert.equal(afterRestart.features.length, 70);
     const persisted = afterRestart.features.find(item => item.properties.entryId === entryId);
     assert.equal(persisted.properties.photos[0].url, media.url);
     assert.equal(persisted.properties.name, entry.name);
